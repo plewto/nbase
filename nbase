@@ -1,0 +1,141 @@
+#! /usr/bin/python3
+#
+
+USAGE=\
+"""
+NAME
+    nbase - convert number bases.
+
+SYNOPSIS
+    nbase [options] arg1 [arg2 arg3 ...]
+
+DESCRIPTION
+
+    Converts number base of each argument; arg1 [arg2 arg3 ...].
+
+    Number bases for input arguments are specified as b^nnn
+    where  b is the number base, 2 <= b <= 36, and nnn is a 
+    valid value in base b.   
+
+    Example: 34 in base 7 is specified as '7^34'
+
+    Special syntax may be used for binary, octal, decimal and
+    hexadecimal values:
+
+    %1101      - % indicates binary
+    0123       - leading 0 indicates octal
+    0xff       - leading 0X indicates hexadecimal
+               - All other values default to decimal.
+
+OPTIONS:
+
+    -h --help     display this message and exit.
+    -v --version  display version info and exit.
+    -o --out n    set output base to n.
+                  The default is to display binary, octal, 
+                  decimal and hexadecimal values for each input
+                  argument.  
+
+                  $ nbase 19
+                    binary     10011
+                    octal      23
+                    decimal    19
+                    hex        13 
+
+                  If an output base is specified then only 
+                  that base is displayed.
+
+                  $ --out 7 19
+                    19 (base 10) = 25 (base 7)
+"""
+
+VERSION = "nbase 2.00 2018.05.24"
+MAX_BASE = 36
+DIGITS="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+def base_n_to_decimal(x, base):
+    try:
+        rs = int(str(x), base)
+        return rs
+    except ValueError as er:
+        msg = "ERROR: Invalid base %s number: %s"
+        raise ValueError(msg % (base,x))
+
+def decimal_to_base_n(dec, base):
+    base = int(base)
+    if dec < 0:
+        return "-" + decimal_to_base_n(abs(dec), base)
+    elif dec == 0:
+        return "0"
+    elif 2 <= base <= MAX_BASE:
+        acc = ""
+        while dec > 0:
+            acc = DIGITS[int(dec) % base] + acc
+            dec = int(dec)/base
+        return acc[1:]
+    else:
+        msg = "Expected number base between 2 and %s, encountered %s."
+        raise ValueError(msg % (MAX_BASE, base))
+
+def guess_base(n):
+    n = str(n).upper()
+    try:
+        if n[0] == "%":
+            return (2,n[1:])
+        elif n[0:2] == "0X":
+            return (16,n[2:])
+        elif n[0] == "0":
+            return (8,n[1:])
+        else:
+            pos = n.find("^")
+            if pos != -1:
+                return (int(n[:pos]), n[pos+1:])
+            else:
+                return (10, n)
+    except IndexError:
+        msg = "Invalid number: %s" % n
+        raise ValueError(msg)
+
+def default_report(dec):
+    for base, mn in ((2,"binary"),
+                     (8,"octal"),
+                     (10,"decimal"),
+                     (16,"hex")):
+        val = decimal_to_base_n(dec, base)
+        print("%-9s  %s" % (mn, val))
+    
+if __name__ == '__main__':
+    import sys, getopt
+    shrtopts = "hvo:"
+    lngopts = ["help","version","out="]
+    inbase, outbase = None, None
+    opts, args = getopt.getopt(sys.argv[1:], shrtopts, lngopts)
+    outbase = None
+    try:
+        for opt,arg in opts:
+            if opt == "-h" or opt == "--help":
+                print(USAGE)
+                sys.exit(0)
+            elif opt == "-v" or opt == "--version":
+                print(VERSION)
+                sys.exit(0)
+            elif opt == "-o" or opt == "--out":
+                outbase = int(arg)
+        for arg in args:
+            try:
+                ibase, mag = guess_base(arg)
+                dec = int(base_n_to_decimal(mag, ibase))
+                if not outbase:
+                    default_report(dec)
+                    print()
+                else:
+                    frmt = "%s (base %s) = %s (base %s)"
+                    out = decimal_to_base_n(dec, int(outbase))
+                    print(frmt % (mag, ibase, out, outbase))
+            except ValueError as err:
+                print(err)
+                sys.exit(2)
+    except (IndexError) as err:
+        print(err)
+        print(USAGE)
+        sys.exit(2)
